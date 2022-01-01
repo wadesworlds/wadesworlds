@@ -27,6 +27,43 @@ Marlin\src\HAL\STM32\../../inc/SanityCheck.h:2156:4: error: #error "TEMP_SENSOR_
 In file included from Marlin\src\HAL\STM32\../../inc/MarlinConfig.h:49,
                  from Marlin\src\HAL\STM32\HAL_SPI.cpp:27:
 
+Defined E0 CS to the Extention 2 CS Pin. 
+
+
+#define E0_STEP_PIN                         PE14
+#define E0_DIR_PIN                          PA0
+#define E0_ENABLE_PIN                       PC3
+#ifndef E0_CS_PIN
+  #define E0_CS_PIN                         PE2
+#endif
+
+ONBOARD for SW_  is where you set the Software SPI for E0?
+
+// Onboard SD card
+// Must use soft SPI because Marlin's default hardware SPI is tied to LCD's EXP2
+//
+#if SD_CONNECTION_IS(LCD)
+
+  #define SD_DETECT_PIN              EXP2_04_PIN
+  #define SDSS                       EXP2_07_PIN
+
+#elif SD_CONNECTION_IS(ONBOARD)
+
+  // The SKR Pro's ONBOARD SD interface is on SPI1.
+  // Due to a pull resistor on the clock line, it needs to use SPI Data Mode 3 to
+  // function with Hardware SPI. This is not currently configurable in the HAL,
+  // so force Software SPI to work around this issue.
+  #define SOFTWARE_SPI
+  #define SDSS                              PE2
+  #define SD_SCK_PIN                        PE0
+  #define SD_MISO_PIN                       PD5
+  #define SD_MOSI_PIN                       PD2
+  #define SD_DETECT_PIN                     PD0
+
+
+
+
+
 
 This is the frist time using GITHUB so do not know where to take this.
 
