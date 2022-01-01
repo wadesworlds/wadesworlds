@@ -31,11 +31,17 @@ Defined E0 CS to the Extention 2 CS Pin.
 
 
 #define E0_STEP_PIN                         PE14
+
 #define E0_DIR_PIN                          PA0
+
 #define E0_ENABLE_PIN                       PC3
+
 #ifndef E0_CS_PIN
+
   #define E0_CS_PIN                         PE2
+  
 #endif
+
 
 ONBOARD for SW_  is where you set the Software SPI for E0?
 
