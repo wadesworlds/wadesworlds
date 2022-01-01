@@ -46,28 +46,44 @@ Defined E0 CS to the Extention 2 CS Pin.
 ONBOARD for SW_  is where you set the Software SPI for E0?
 
 // Onboard SD card
+
 // Must use soft SPI because Marlin's default hardware SPI is tied to LCD's EXP2
+
 //
+
 #if SD_CONNECTION_IS(LCD)
 
+
+
   #define SD_DETECT_PIN              EXP2_04_PIN
+  
   #define SDSS                       EXP2_07_PIN
+  
 
 #elif SD_CONNECTION_IS(ONBOARD)
 
+
   // The SKR Pro's ONBOARD SD interface is on SPI1.
+  
   // Due to a pull resistor on the clock line, it needs to use SPI Data Mode 3 to
+  
   // function with Hardware SPI. This is not currently configurable in the HAL,
+  
   // so force Software SPI to work around this issue.
+  
   #define SOFTWARE_SPI
+  
   #define SDSS                              PE2
+  
   #define SD_SCK_PIN                        PE0
+  
   #define SD_MISO_PIN                       PD5
+  
+  
   #define SD_MOSI_PIN                       PD2
+  
   #define SD_DETECT_PIN                     PD0
-
-
-
+  
 
 
 
