@@ -1,0 +1,12 @@
+{
+  "filaments": [
+    {"name": "Grey PLA",      "hex": "#8E8687", "slot": 1, "match": ["#605E5E", "#97949B"]},
+    {"name": "Khaki PLA",     "hex": "#CCC0B4", "slot": 2, "match": ["#D4CFC9", "#C8B19E"]},
+    {"name": "Teal PLA",      "hex": "#187784", "slot": 3, "match": ["#16646C", "#1A889A"]},
+    {"name": "Magenta PLA",   "hex": "#E92576", "slot": 4, "match": ["#D11859"]},
+    {"name": "Skin PLA",      "hex": "#F3B491", "slot": 5, "match": ["#E09167", "#C4744E", "#AD6242"]},
+    {"name": "Black PLA",     "hex": "#2A2728", "slot": 6, "match": ["#323031"]},
+    {"name": "Navy PLA",      "hex": "#224678", "slot": 7},
+    {"name": "White PLA",     "hex": "#F2F2F2", "slot": 8}
+  ]
+}
