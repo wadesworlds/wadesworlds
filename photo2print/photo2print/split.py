@@ -104,21 +104,30 @@ def _index(filaments, name):
     raise SystemExit(f"rule: {name!r} is not a filament name")
 
 
-def apply_box_rules(mesh, labels, filaments, rules):
-    """Recolor faces inside a box: e.g. hair that shares a color with pants."""
-    c = mesh.triangles_center
+def apply_box_rules(grid, lo, pitch, filaments, rules):
+    """Recolor the solid inside a box: e.g. hair that shares a color with the
+    pants. Runs after absorb_regions, so it can't undo an absorb."""
+    centers = [lo[ax] + (np.arange(grid.shape[ax]) + 0.5) * pitch for ax in range(3)]
     for r in rules:
-        inside = np.ones(len(labels), bool)
-        for axis, col in (("x", 0), ("y", 1), ("z", 2)):
-            if r.get(axis):
-                lo, hi = sorted(r[axis])
-                inside &= (c[:, col] >= lo) & (c[:, col] <= hi)
+        sel = []
+        for ax, name in enumerate("xyz"):
+            if r.get(name):
+                a, b = sorted(r[name])
+                sel.append(np.flatnonzero((centers[ax] >= a) & (centers[ax] <= b)))
+            else:
+                sel.append(np.arange(grid.shape[ax]))
+        if any(len(s) == 0 for s in sel):
+            print(f"  rule -> {r['to']}: box is outside the model")
+            continue
+        box = np.ix_(*sel)
+        sub = grid[box]
+        hit = sub > 0
         if r.get("from"):
-            src = [_index(filaments, n) for n in r["from"]]
-            inside &= np.isin(labels, src)
-        labels = np.where(inside, _index(filaments, r["to"]), labels)
-        print(f"  rule -> {r['to']}: {int(inside.sum())} faces")
-    return labels
+            hit &= np.isin(sub, [_index(filaments, n) + 1 for n in r["from"]])
+        sub[hit] = _index(filaments, r["to"]) + 1
+        grid[box] = sub
+        print(f"  rule -> {r['to']}: {int(hit.sum() * pitch ** 3)} mm3")
+    return grid
 
 
 def auto_filaments(face_rgb, areas, k):
@@ -518,8 +527,6 @@ def split_model(path, filaments=None, n_auto=6, height_mm=120.0, up="y",
     n = len(filaments)
     labels = assign_labels(face_rgb, filaments)
     labels = smooth_face_labels(mesh, labels, n, smooth)
-    if rules:
-        labels = apply_box_rules(mesh, labels, filaments, rules)
 
     original = None
     if surface in ("auto", "original"):
@@ -542,6 +549,8 @@ def split_model(path, filaments=None, n_auto=6, height_mm=120.0, up="y",
     min_vox = int(np.ceil(min_island_mm3 / pitch ** 3))
     grid = remove_islands(grid, min_vox, n)
     grid = absorb_regions(grid, filaments)
+    if rules:
+        grid = apply_box_rules(grid, lo, pitch, filaments, rules)
 
     print("Building parts")
     meshes = None
