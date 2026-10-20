@@ -63,6 +63,17 @@ python -m photo2print meshy couple_flat.png -o couple.glb                # ai_mo
 python -m photo2print meshy couple_flat.png -o couple.glb --ai-model meshy-6
 ```
 
+### Check which model colors go to which filament
+Meshy's texture has its own shadows and shades, which can differ from the photo.
+List the colors actually painted on the model, and the filament each one goes to:
+
+```bash
+python -m photo2print colors couple.glb -f filaments.json -o model_colors.png
+```
+
+If a shadow color goes to the wrong filament (for example, a dark shirt shadow
+turning black), add its hex to the right filament's `"match"` list.
+
 ### 4. Split by color and rebuild
 
 ```bash

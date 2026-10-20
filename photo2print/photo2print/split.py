@@ -127,6 +127,39 @@ def smooth_face_labels(mesh, labels, n_labels, iterations=3):
     return labels
 
 
+def texture_report(path, filaments, k=16, up="y", png=None):
+    """List the colors actually painted on the model (area weighted) and the
+    filament each one goes to, so 'match' lists can be tuned."""
+    from PIL import Image, ImageDraw
+    from .colors import hex_to_rgb
+    mesh, face_rgb = load_colored_mesh(path, up=up)
+    area = mesh.area_faces
+    lab = rgb_to_lab(face_rgb)
+    rng = np.random.default_rng(0)
+    pick = rng.choice(len(lab), min(len(lab), 120000), replace=True, p=area / area.sum())
+    centers, lbl = kmeans(lab[pick], k)
+    share = np.bincount(lbl, minlength=len(centers)) / len(lbl)
+    rows = []
+    for i in np.argsort(-share):
+        rgb = face_rgb[pick][lbl == i].mean(0)
+        target = filaments[assign_labels(rgb[None], filaments)[0]] if filaments else None
+        rows.append((rgb_to_hex(rgb), float(share[i]), target))
+    if png:
+        h = 34
+        img = Image.new("RGB", (560, h * len(rows) + 10), "white")
+        d = ImageDraw.Draw(img)
+        for r, (hx, sh, t) in enumerate(rows):
+            y = 5 + r * h
+            d.rectangle([5, y, 85, y + h - 6], fill=hex_to_rgb(hx))
+            d.text((95, y + 8), f"{hx}   {sh:6.1%}", fill="black")
+            if t:
+                d.text((260, y + 8), "->", fill="black")
+                d.rectangle([290, y, 350, y + h - 6], fill=hex_to_rgb(t["hex"]))
+                d.text((360, y + 8), f"slot {t['slot']}  {t['name']}", fill="black")
+        img.save(png)
+    return rows
+
+
 # ---------------------------------------------------------------- voxels
 def _rasterize(mesh, lo, pitch, shape, chunk=4_000_000):
     """Voxel index of points on a barycentric grid over each triangle, dense

@@ -35,6 +35,17 @@ def cmd_meshy(a):
                       target_polycount=a.polycount, api_key=a.api_key)
 
 
+def cmd_colors(a):
+    filaments = load_filaments(a.filaments) if a.filaments else None
+    rows = split.texture_report(a.model, filaments, a.colors, a.up, a.out)
+    print("Colors painted on the model (biggest first):")
+    for hx, sh, t in rows:
+        goes = f"-> slot {t['slot']} {t['name']}" if t else ""
+        print(f"  {hx}  {sh:6.1%}  {goes}")
+    print(f"Saved {a.out}. If a color goes to the wrong filament, add its hex to the "
+          f"right filament's \"match\" list in your filaments file.")
+
+
 def cmd_split(a):
     filaments = load_filaments(a.filaments) if a.filaments else None
     core = None
@@ -115,6 +126,14 @@ def main(argv=None):
     m.add_argument("--polycount", type=int, default=300000)
     m.add_argument("--api-key")
     m.set_defaults(func=cmd_meshy)
+
+    t = sub.add_parser("colors", help="list the colors on the model and where each goes")
+    t.add_argument("model")
+    t.add_argument("-f", "--filaments")
+    t.add_argument("-n", "--colors", type=int, default=16)
+    t.add_argument("-o", "--out", default="model_colors.png")
+    t.add_argument("--up", choices=["y", "z"], default="y")
+    t.set_defaults(func=cmd_colors)
 
     s = sub.add_parser("split", help="textured model -> watertight part per filament + 3MF")
     s.add_argument("model", help="GLB/GLTF/OBJ/PLY with texture or vertex colors")
