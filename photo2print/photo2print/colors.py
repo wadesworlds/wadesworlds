@@ -75,8 +75,30 @@ def load_filaments(path):
             "hex": rgb_to_hex(hex_to_rgb(e["hex"])),
             "slot": int(e.get("slot", i + 1)),
             "match": [rgb_to_hex(hex_to_rgb(m)) for m in e.get("match", [])],
+            "absorb_into": list(e.get("absorb_into", [])),
+            "absorb_ratio": float(e.get("absorb_ratio", 0.75)),
         })
+    names = {f["name"].lower() for f in out}
+    for f in out:
+        for n in f["absorb_into"]:
+            if n.lower() not in names:
+                raise SystemExit(f"{f['name']}: absorb_into {n!r} is not a filament name")
     return out
+
+
+def load_rules(path):
+    """Optional "rules": [{"to": "Black", "from": ["White"],
+    "x": [lo, hi], "y": [lo, hi], "z": [lo, hi]}, ...] in model millimetres
+    (the grid on the *_map.png picture). Missing axes mean "any"."""
+    with open(path) as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        return []
+    rules = []
+    for r in data.get("rules", []):
+        rules.append({"to": r["to"], "from": r.get("from"),
+                      **{ax: r.get(ax) for ax in ("x", "y", "z")}})
+    return rules
 
 
 def palette_targets(filaments):

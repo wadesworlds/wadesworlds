@@ -97,6 +97,30 @@ def assign_labels(face_rgb, filaments):
     return owner[nearest(rgb_to_lab(face_rgb), targets)]
 
 
+def _index(filaments, name):
+    for i, f in enumerate(filaments):
+        if f["name"].lower() == name.lower():
+            return i
+    raise SystemExit(f"rule: {name!r} is not a filament name")
+
+
+def apply_box_rules(mesh, labels, filaments, rules):
+    """Recolor faces inside a box: e.g. hair that shares a color with pants."""
+    c = mesh.triangles_center
+    for r in rules:
+        inside = np.ones(len(labels), bool)
+        for axis, col in (("x", 0), ("y", 1), ("z", 2)):
+            if r.get(axis):
+                lo, hi = sorted(r[axis])
+                inside &= (c[:, col] >= lo) & (c[:, col] <= hi)
+        if r.get("from"):
+            src = [_index(filaments, n) for n in r["from"]]
+            inside &= np.isin(labels, src)
+        labels = np.where(inside, _index(filaments, r["to"]), labels)
+        print(f"  rule -> {r['to']}: {int(inside.sum())} faces")
+    return labels
+
+
 def auto_filaments(face_rgb, areas, k):
     """No filament file: cluster the texture into k colors."""
     lab = rgb_to_lab(face_rgb)
@@ -275,6 +299,38 @@ def majority_filter(grid, n_labels, iterations=1):
     return grid
 
 
+def absorb_regions(grid, filaments):
+    """A patch of color A that is mostly surrounded by color B (listed in A's
+    "absorb_into") takes color B: e.g. black straps or shadows painted on a
+    shirt, while a black cane or base touching other colors stays black."""
+    struct = ndimage.generate_binary_structure(3, 3)
+    for i, f in enumerate(filaments):
+        targets = [_index(filaments, n) + 1 for n in f.get("absorb_into", [])]
+        if not targets:
+            continue
+        a = i + 1
+        comp, n = ndimage.label(grid == a, structure=struct)
+        moved = 0
+        for j, sl in enumerate(ndimage.find_objects(comp), start=1):
+            if sl is None:
+                continue
+            sl = tuple(slice(max(s.start - 1, 0), s.stop + 1) for s in sl)
+            blob = comp[sl] == j
+            ring = ndimage.binary_dilation(blob, struct) & ~blob
+            nb = grid[sl][ring]
+            nb = nb[(nb > 0) & (nb != a)]
+            if len(nb) == 0:
+                continue
+            cnt = np.bincount(nb, minlength=len(filaments) + 1)
+            best = int(cnt.argmax())
+            if best in targets and cnt[best] >= f.get("absorb_ratio", 0.75) * len(nb):
+                grid[sl][blob] = best
+                moved += 1
+        if moved:
+            print(f"  {f['name']}: {moved} patch(es) absorbed into surrounding color")
+    return grid
+
+
 def extend_labels(grid, grow_voxels=3):
     """Copy the nearest label a few voxels outward past the solid, so color
     regions fully cover the original surface."""
@@ -449,7 +505,7 @@ def decimate(m, target_faces):
 def split_model(path, filaments=None, n_auto=6, height_mm=120.0, up="y",
                 pitch=None, smooth=3, min_island_mm3=3.0, sigma=0.7,
                 core=None, shell_mm=2.0, close_iters=1, max_faces=400000,
-                surface="auto", clean=2):
+                surface="auto", clean=2, rules=None):
     """Returns (parts, filaments): parts = [(filament_index, trimesh), ...]."""
     print(f"Loading {path}")
     mesh, face_rgb = load_colored_mesh(path, up=up, height_mm=height_mm)
@@ -462,6 +518,8 @@ def split_model(path, filaments=None, n_auto=6, height_mm=120.0, up="y",
     n = len(filaments)
     labels = assign_labels(face_rgb, filaments)
     labels = smooth_face_labels(mesh, labels, n, smooth)
+    if rules:
+        labels = apply_box_rules(mesh, labels, filaments, rules)
 
     original = None
     if surface in ("auto", "original"):
@@ -483,6 +541,7 @@ def split_model(path, filaments=None, n_auto=6, height_mm=120.0, up="y",
     grid = majority_filter(grid, n, clean)
     min_vox = int(np.ceil(min_island_mm3 / pitch ** 3))
     grid = remove_islands(grid, min_vox, n)
+    grid = absorb_regions(grid, filaments)
 
     print("Building parts")
     meshes = None

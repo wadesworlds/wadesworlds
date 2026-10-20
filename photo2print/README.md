@@ -74,6 +74,32 @@ python -m photo2print colors couple.glb -f filaments.json -o model_colors.png
 If a shadow color goes to the wrong filament (for example, a dark shirt shadow
 turning black), add its hex to the right filament's `"match"` list.
 
+### Fix colors by place: absorb and box rules
+Some problems can't be fixed by color alone. For example, black straps painted
+on a shirt are the same black as a cane, and light hair is the same color as
+the pants. Two options in `filaments.json` handle these:
+
+```json
+{
+  "filaments": [
+    {"name": "Black", "hex": "#1A1A1A", "slot": 2, "absorb_into": ["Orange", "Blue"]},
+    ...
+  ],
+  "rules": [
+    {"to": "Black", "from": ["White"], "x": [5, 30], "y": [0, 20], "z": [128, 145]}
+  ]
+}
+```
+
+* `absorb_into`: a black patch that is mostly (75%, change it with
+  `absorb_ratio`) surrounded by orange or blue becomes that color. Straps and
+  shirt shadows disappear, while a cane, shoes or base touching other colors
+  stay black.
+* `rules`: inside a box (model millimetres), turn the `from` colors into the
+  `to` color. Leave out an axis to mean "any". To find the numbers, use the
+  `*_map.png` picture that `split` saves: front, back and side views with a
+  10 mm grid.
+
 ### 4. Split by color and rebuild
 
 ```bash

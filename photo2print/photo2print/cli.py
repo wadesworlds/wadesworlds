@@ -8,7 +8,7 @@ import numpy as np
 import trimesh
 
 from . import image_tools, meshy, split, threemf
-from .colors import hex_to_rgb, load_filaments
+from .colors import hex_to_rgb, load_filaments, load_rules
 
 
 def _slug(s):
@@ -48,6 +48,7 @@ def cmd_colors(a):
 
 def cmd_split(a):
     filaments = load_filaments(a.filaments) if a.filaments else None
+    rules = load_rules(a.filaments) if a.filaments else []
     core = None
     if a.core:
         if not filaments:
@@ -61,7 +62,7 @@ def cmd_split(a):
         a.model, filaments=filaments, n_auto=a.colors, height_mm=a.height, up=a.up,
         pitch=a.pitch, smooth=a.smooth, min_island_mm3=a.min_island, sigma=a.sigma,
         core=core, shell_mm=a.shell, close_iters=a.close, max_faces=a.max_faces,
-        surface=a.surface, clean=a.clean)
+        surface=a.surface, clean=a.clean, rules=rules)
     if not parts:
         raise SystemExit("No parts were produced")
 
@@ -83,6 +84,11 @@ def cmd_split(a):
     threemf.write_bambu(bambu, records, name=name)
     threemf.write_prusa(prusa, records, name=name)
     scene.export(os.path.join(a.out, f"{name}_preview.glb"))
+    if not a.no_map:
+        from .preview import render_map
+        print("Drawing the map picture ...")
+        render_map([(r["mesh"], r["hex"]) for r in records],
+                   os.path.join(a.out, f"{name}_map.png"))
 
     with open(os.path.join(a.out, f"{name}_parts.json"), "w") as fh:
         json.dump([{k: r[k] for k in ("name", "hex", "slot", "stl")} |
@@ -94,7 +100,9 @@ def cmd_split(a):
     print(f"\nWrote to {a.out}/")
     print(f"  {os.path.basename(bambu)}  <- open in Bambu Studio / OrcaSlicer")
     print(f"  {os.path.basename(prusa)}  <- open in PrusaSlicer")
-    print("  one STL per color, a colored preview .glb and a parts.json summary")
+    print("  one STL per color, a colored preview .glb, a parts.json summary")
+    if not a.no_map:
+        print(f"  {name}_map.png  <- views with a mm grid, for box rules")
     print("Filament slots used: " + ", ".join(
         f"{r['slot']}={r['name']} ({r['hex']})" for r in sorted(records, key=lambda r: r["slot"])))
 
@@ -161,6 +169,7 @@ def main(argv=None):
                    help="color shell thickness in mm when --core is set")
     s.add_argument("--close", type=int, default=1, help="hole closing passes before filling")
     s.add_argument("--max-faces", type=int, default=400000, help="per part, 0 = no limit")
+    s.add_argument("--no-map", action="store_true", help="skip the map picture")
     s.set_defaults(func=cmd_split)
 
     a = p.parse_args(argv)
