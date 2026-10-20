@@ -4,3 +4,4 @@ scikit-image>=0.21
 trimesh>=4.0
 pillow>=10.0
 requests>=2.28
+manifold3d>=2.4

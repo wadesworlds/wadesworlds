@@ -49,7 +49,8 @@ def cmd_split(a):
     parts, filaments = split.split_model(
         a.model, filaments=filaments, n_auto=a.colors, height_mm=a.height, up=a.up,
         pitch=a.pitch, smooth=a.smooth, min_island_mm3=a.min_island, sigma=a.sigma,
-        core=core, shell_mm=a.shell, close_iters=a.close, max_faces=a.max_faces)
+        core=core, shell_mm=a.shell, close_iters=a.close, max_faces=a.max_faces,
+        surface=a.surface, clean=a.clean)
     if not parts:
         raise SystemExit("No parts were produced")
 
@@ -124,11 +125,17 @@ def main(argv=None):
     s.add_argument("--height", type=float, default=120.0, help="final height in mm")
     s.add_argument("--up", choices=["y", "z"], default="y",
                    help="up axis of the input (Meshy GLB is y)")
-    s.add_argument("--pitch", type=float, default=0.3,
-                   help="voxel size in mm; smaller = finer color edges, more RAM")
+    s.add_argument("--pitch", type=float, default=None,
+                   help="voxel size in mm; smaller = finer color edges, more RAM "
+                        "(default 0.4 with the original surface, 0.3 with voxel)")
     s.add_argument("--smooth", type=int, default=3, help="face label smoothing passes")
     s.add_argument("--sigma", type=float, default=0.7, help="surface smoothing (voxels)")
-    s.add_argument("--min-island", type=float, default=1.0,
+    s.add_argument("--surface", choices=["auto", "original", "voxel"], default="auto",
+                   help="original = keep Meshy's surface exactly (needs a closed mesh); "
+                        "voxel = rebuild it from voxels; auto = original when possible")
+    s.add_argument("--clean", type=int, default=2,
+                   help="majority-filter passes that tidy color borders (0 = off)")
+    s.add_argument("--min-island", type=float, default=3.0,
                    help="merge color islands smaller than this (mm^3)")
     s.add_argument("--core", help="filament name used for the hidden inside")
     s.add_argument("--shell", type=float, default=2.0,

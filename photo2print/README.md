@@ -17,7 +17,7 @@ assigned. You open the 3MF and slice it without painting any colors.
 ```bash
 cd photo2print
 pip install -r requirements.txt
-pip install fast-simplification   # optional: lets --max-faces shrink big parts
+pip install fast-simplification   # optional: shrinks big parts in voxel mode
 ```
 
 ## Workflow
@@ -91,14 +91,16 @@ highest `slot` you used, and set each filament slot's color to match.
 | option | default | meaning |
 |---|---|---|
 | `--height` | 120 | final height in mm |
-| `--pitch` | 0.3 | voxel size (mm). Smaller gives crisper color borders but uses more RAM and time. Try 0.2 for small figures, 0.4-0.5 for big ones |
+| `--surface` | auto | `original` keeps Meshy's surface exactly (needs a closed model). `voxel` rebuilds it from voxels (smoother, less detail). `auto` uses original when it can |
+| `--pitch` | 0.4 / 0.3 | voxel size (mm) for the color borders. Smaller gives sharper borders but uses more RAM and time |
+| `--clean` | 2 | passes that tidy ragged color borders |
+| `--min-island` | 3.0 | color blobs smaller than this (mm³) join their neighbor. Raise it (e.g. 10) for fewer specks |
 | `--smooth` | 3 | passes that clean up speckled texture colors |
-| `--min-island` | 1.0 | color blobs smaller than this (mm³) join their neighbor |
-| `--sigma` | 0.7 | surface smoothing (0 = blocky voxels) |
+| `--sigma` | 0.7 | how smooth the color borders are |
 | `--core NAME --shell MM` | off | only the outer MM mm is colored; the hidden inside is printed with filament NAME, so fewer filament changes inside |
 | `--up z` | y | use if your model is already Z-up (Meshy GLB is Y-up) |
 | `--close 2` | 1 | use if you get the "mesh shell seems open" warning |
-| `--max-faces` | 400000 | per-part triangle limit (needs `fast-simplification`) |
+| `--max-faces` | 400000 | per-part triangle limit, voxel surface only (needs `fast-simplification`) |
 | `-n 6` (no `-f`) | | no filament file: auto-cluster the texture into 6 colors |
 
 ## How it works
@@ -107,18 +109,23 @@ highest `slot` you used, and set each filament slot's color to match.
 2. Reads the texture color under each triangle and snaps it to the nearest filament (CIELAB).
 3. A neighbor majority vote removes speckles.
 4. Voxelizes the model. Surface voxels take the filament of the triangle
-   they touch. The inside gets filled, and each inside voxel takes the
-   filament of the nearest surface voxel (or the `--core` filament below
-   `--shell`).
-5. Merges tiny islands into their neighbors.
-6. Runs marching cubes once per filament. Each part comes out as a
-   closed, watertight solid. Neighboring parts share the same boundary, so
-   they don't overlap and leave no gaps, and together they rebuild the figure.
+   they touch, and each inside voxel takes the filament of the nearest
+   surface voxel (or the `--core` filament below `--shell`). A majority
+   filter and island merge tidy the color regions.
+5. **Original surface** (default): each color region is turned into a smooth
+   solid, and neighboring regions share exactly the same border. The tool
+   then cuts each region out of the original Meshy model with exact boolean
+   operations (manifold3d). The outside keeps all of Meshy's detail; only the
+   hidden borders between colors come from the voxels. Separate or
+   overlapping shells are fused first, and small holes are filled.
+6. **Voxel surface** (fallback for broken models): marching cubes per color.
+7. Every part comes out closed and watertight, the parts don't overlap, and
+   together they rebuild the figure.
 
 ## Tips
 
-* Detail smaller than about 2x `--pitch` (eyes, logos, laces) is merged
-  into a neighbor color. That is usually what you want for FDM.
+* Color areas smaller than `--min-island` (eyes, logos, laces) are merged
+  into a neighbor color. The shape detail itself is kept.
 * Ask Meshy for a high-poly model with a texture. PBR is not needed.
 * If the shirt picks up shading as a different color, add those shades to
   the shirt filament's `match` list.
